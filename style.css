@@ -1,0 +1,418 @@
+// 游戏配置
+const DIFFICULTY = {
+    easy: { rows: 9, cols: 9, mines: 10, name: '初级' },
+    medium: { rows: 16, cols: 16, mines: 40, name: '中级' },
+    hard: { rows: 16, cols: 30, mines: 99, name: '高级' }
+};
+
+// 游戏状态
+let gameState = {
+    board: [],
+    mines: [],
+    flagged: [],
+    revealed: [],
+    gameOver: false,
+    gameWon: false,
+    firstClick: true,
+    startTime: null,
+    timer: null,
+    timeElapsed: 0,
+    difficulty: 'easy',
+    minesCount: DIFFICULTY.easy.mines
+};
+
+// DOM 元素
+const gameBoard = document.getElementById('game-board');
+const timerElement = document.getElementById('timer');
+const minesCountElement = document.getElementById('mines-count');
+const gameStatusElement = document.getElementById('game-status');
+const restartButton = document.getElementById('restart');
+const difficultyButtons = document.querySelectorAll('.difficulty-btn');
+const resetScoresButton = document.getElementById('reset-scores');
+const bestScores = {
+    easy: document.getElementById('best-easy'),
+    medium: document.getElementById('best-medium'),
+    hard: document.getElementById('best-hard')
+};
+
+// 初始化游戏
+function initGame() {
+    const config = DIFFICULTY[gameState.difficulty];
+    gameState.minesCount = config.mines;
+    
+    // 重置游戏状态
+    gameState.board = Array(config.rows).fill().map(() => Array(config.cols).fill(0));
+    gameState.mines = [];
+    gameState.flagged = [];
+    gameState.revealed = [];
+    gameState.gameOver = false;
+    gameState.gameWon = false;
+    gameState.firstClick = true;
+    gameState.timeElapsed = 0;
+    
+    // 清除定时器
+    if (gameState.timer) {
+        clearInterval(gameState.timer);
+        gameState.timer = null;
+    }
+    
+    // 更新显示
+    updateDisplay();
+    
+    // 清空游戏板
+    gameBoard.innerHTML = '';
+    
+    // 设置游戏板网格
+    gameBoard.style.gridTemplateColumns = `repeat(${config.cols}, 1fr)`;
+    gameBoard.style.gridTemplateRows = `repeat(${config.rows}, 1fr)`;
+    
+    // 创建格子
+    for (let row = 0; row < config.rows; row++) {
+        for (let col = 0; col < config.cols; col++) {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.dataset.row = row;
+            cell.dataset.col = col;
+            
+            // 添加事件监听器
+            cell.addEventListener('click', () => handleLeftClick(row, col));
+            cell.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                handleRightClick(row, col);
+            });
+            cell.addEventListener('dblclick', () => handleDoubleClick(row, col));
+            
+            gameBoard.appendChild(cell);
+        }
+    }
+    
+    // 加载最佳成绩
+    loadBestScores();
+}
+
+// 布雷（在第一次点击后）
+function placeMines(firstRow, firstCol) {
+    const config = DIFFICULTY[gameState.difficulty];
+    const safeCells = getNeighbors(firstRow, firstCol);
+    safeCells.push([firstRow, firstCol]);
+    
+    // 随机布雷
+    let minesPlaced = 0;
+    while (minesPlaced < config.mines) {
+        const row = Math.floor(Math.random() * config.rows);
+        const col = Math.floor(Math.random() * config.cols);
+        
+        // 确保不是安全区域且没有雷
+        const isSafe = safeCells.some(([r, c]) => r === row && c === col);
+        const hasMine = gameState.mines.some(([r, c]) => r === row && c === col);
+        
+        if (!isSafe && !hasMine) {
+            gameState.mines.push([row, col]);
+            gameState.board[row][col] = 'M'; // M 表示雷
+            minesPlaced++;
+        }
+    }
+    
+    // 计算周围雷数
+    calculateNumbers();
+}
+
+// 计算每个格子的数字
+function calculateNumbers() {
+    const config = DIFFICULTY[gameState.difficulty];
+    
+    for (let row = 0; row < config.rows; row++) {
+        for (let col = 0; col < config.cols; col++) {
+            if (gameState.board[row][col] !== 'M') {
+                const mineCount = countAdjacentMines(row, col);
+                gameState.board[row][col] = mineCount;
+            }
+        }
+    }
+}
+
+// 计算相邻雷数
+function countAdjacentMines(row, col) {
+    let count = 0;
+    const neighbors = getNeighbors(row, col);
+    
+    for (const [r, c] of neighbors) {
+        if (gameState.board[r] && gameState.board[r][c] === 'M') {
+            count++;
+        }
+    }
+    
+    return count;
+}
+
+// 获取相邻格子
+function getNeighbors(row, col) {
+    const config = DIFFICULTY[gameState.difficulty];
+    const neighbors = [];
+    
+    for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+            if (dr === 0 && dc === 0) continue;
+            
+            const newRow = row + dr;
+            const newCol = col + dc;
+            
+            if (newRow >= 0 && newRow < config.rows && 
+                newCol >= 0 && newCol < config.cols) {
+                neighbors.push([newRow, newCol]);
+            }
+        }
+    }
+    
+    return neighbors;
+}
+
+// 左键点击处理
+function handleLeftClick(row, col) {
+    if (gameState.gameOver || gameState.gameWon || isFlagged(row, col)) return;
+    
+    // 首发防雷：第一次点击时布雷
+    if (gameState.firstClick) {
+        gameState.firstClick = false;
+        gameState.startTime = Date.now();
+        placeMines(row, col);
+        startTimer();
+    }
+    
+    // 如果是雷，游戏结束
+    if (gameState.board[row][col] === 'M') {
+        gameOver(false);
+        revealAllMines();
+        revealCell(row, col, true);
+        return;
+    }
+    
+    // 翻开格子
+    revealCell(row, col);
+    
+    // 检查是否获胜
+    checkWin();
+}
+
+// 右键点击处理（插旗）
+function handleRightClick(row, col) {
+    if (gameState.gameOver || gameState.gameWon || isRevealed(row, col)) return;
+    
+    const cell = getCellElement(row, col);
+    
+    if (isFlagged(row, col)) {
+        // 取消旗帜
+        gameState.flagged = gameState.flagged.filter(([r, c]) => !(r === row && c === col));
+        cell.innerHTML = '';
+        cell.classList.remove('flagged');
+    } else {
+        // 放置旗帜
+        gameState.flagged.push([row, col]);
+        cell.innerHTML = '<i class="fas fa-flag"></i>';
+        cell.classList.add('flagged');
+    }
+    
+    // 更新剩余雷数
+    updateMinesCount();
+}
+
+// 双击处理（快速清除）
+function handleDoubleClick(row, col) {
+    if (gameState.gameOver || gameState.gameWon || 
+        isFlagged(row, col) || !isRevealed(row, col)) return;
+    
+    const cellValue = gameState.board[row][col];
+    if (typeof cellValue !== 'number' || cellValue === 0) return;
+    
+    const neighbors = getNeighbors(row, col);
+    const flagCount = neighbors.filter(([r, c]) => isFlagged(r, c)).length;
+    
+    // 如果旗帜数等于数字，翻开剩余格子
+    if (flagCount === cellValue) {
+        for (const [r, c] of neighbors) {
+            if (!isFlagged(r, c) && !isRevealed(r, c)) {
+                if (gameState.board[r][c] === 'M') {
+                    gameOver(false);
+                    revealAllMines();
+                    return;
+                }
+                revealCell(r, c);
+            }
+        }
+    }
+    
+    // 检查是否获胜
+    checkWin();
+}
+
+// 翻开格子
+function revealCell(row, col, isMine = false) {
+    if (isRevealed(row, col) || isFlagged(row, col)) return;
+    
+    gameState.revealed.push([row, col]);
+    const cell = getCellElement(row, col);
+    cell.classList.add('revealed');
+    
+    const cellValue = gameState.board[row][col];
+    
+    if (cellValue === 'M') {
+        cell.innerHTML = '<i class="fas fa-bomb"></i>';
+        cell.classList.add('mine');
+    } else if (cellValue > 0) {
+        cell.textContent = cellValue;
+        cell.dataset.number = cellValue;
+    }
+    
+    // 如果是0，递归翻开相邻格子
+    if (cellValue === 0 && !isMine) {
+        const neighbors = getNeighbors(row, col);
+        for (const [r, c] of neighbors) {
+            if (!isRevealed(r, c) && !isFlagged(r, c)) {
+                revealCell(r, c);
+            }
+        }
+    }
+}
+
+// 检查是否获胜
+function checkWin() {
+    const config = DIFFICULTY[gameState.difficulty];
+    const totalCells = config.rows * config.cols;
+    const revealedCount = gameState.revealed.length;
+    const mineCount = config.mines;
+    
+    if (revealedCount === totalCells - mineCount) {
+        gameOver(true);
+        saveBestScore();
+    }
+}
+
+// 游戏结束
+function gameOver(isWin) {
+    gameState.gameOver = true;
+    gameState.gameWon = isWin;
+    
+    if (gameState.timer) {
+        clearInterval(gameState.timer);
+    }
+    
+    if (isWin) {
+        gameStatusElement.textContent = '恭喜你赢了！';
+        gameStatusElement.className = 'game-won';
+    } else {
+        gameStatusElement.textContent = '游戏结束！';
+        gameStatusElement.className = 'game-over';
+    }
+}
+
+// 翻开所有雷
+function revealAllMines() {
+    for (const [row, col] of gameState.mines) {
+        if (!isFlagged(row, col)) {
+            const cell = getCellElement(row, col);
+            cell.innerHTML = '<i class="fas fa-bomb"></i>';
+            cell.classList.add('mine', 'revealed');
+        }
+    }
+}
+
+// 辅助函数
+function getCellElement(row, col) {
+    return document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
+}
+
+function isRevealed(row, col) {
+    return gameState.revealed.some(([r, c]) => r === row && c === col);
+}
+
+function isFlagged(row, col) {
+    return gameState.flagged.some(([r, c]) => r === row && c === col);
+}
+
+// 计时器
+function startTimer() {
+    gameState.startTime = Date.now();
+    gameState.timer = setInterval(() => {
+        gameState.timeElapsed = Math.floor((Date.now() - gameState.startTime) / 1000);
+        timerElement.textContent = gameState.timeElapsed;
+    }, 1000);
+}
+
+// 更新显示
+function updateDisplay() {
+    minesCountElement.textContent = gameState.minesCount - gameState.flagged.length;
+    timerElement.textContent = gameState.timeElapsed;
+    
+    if (gameState.firstClick) {
+        gameStatusElement.textContent = '准备开始';
+        gameStatusElement.className = '';
+    }
+}
+
+// 更新剩余雷数
+function updateMinesCount() {
+    const remaining = gameState.minesCount - gameState.flagged.length;
+    minesCountElement.textContent = remaining;
+}
+
+// 本地存储：保存最佳成绩
+function saveBestScore() {
+    const currentTime = gameState.timeElapsed;
+    const key = `minesweeper_best_${gameState.difficulty}`;
+    const bestTime = localStorage.getItem(key);
+    
+    if (!bestTime || currentTime < parseInt(bestTime)) {
+        localStorage.setItem(key, currentTime.toString());
+        loadBestScores();
+    }
+}
+
+// 加载最佳成绩
+function loadBestScores() {
+    for (const difficulty in DIFFICULTY) {
+        const key = `minesweeper_best_${difficulty}`;
+        const bestTime = localStorage.getItem(key);
+        const element = bestScores[difficulty];
+        
+        if (bestTime) {
+            element.textContent = `${bestTime}秒`;
+            element.style.color = '#48bb78';
+            element.style.fontWeight = '600';
+        } else {
+            element.textContent = '暂无记录';
+            element.style.color = '#718096';
+            element.style.fontWeight = 'normal';
+        }
+    }
+}
+
+// 清空记录
+function resetScores() {
+    if (confirm('确定要清空所有最佳成绩记录吗？')) {
+        for (const difficulty in DIFFICULTY) {
+            localStorage.removeItem(`minesweeper_best_${difficulty}`);
+        }
+        loadBestScores();
+    }
+}
+
+// 事件监听器
+restartButton.addEventListener('click', initGame);
+
+difficultyButtons.forEach(button => {
+    button.addEventListener('click', () => {
+        // 移除所有active类
+        difficultyButtons.forEach(btn => btn.classList.remove('active'));
+        // 添加active类到点击的按钮
+        button.classList.add('active');
+        // 更新难度
+        gameState.difficulty = button.id;
+        // 重新初始化游戏
+        initGame();
+    });
+});
+
+resetScoresButton.addEventListener('click', resetScores);
+
+// 初始化游戏
+initGame();

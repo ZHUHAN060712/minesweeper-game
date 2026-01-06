@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>扫雷游戏 - Web单页应用</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-bomb"></i> 扫雷游戏</h1>
+            <p class="subtitle">Web单页应用开发实践课程项目</p >
+        </header>
+
+        <div class="game-controls">
+            <div class="difficulty-selector">
+                <h3><i class="fas fa-sliders-h"></i> 难度选择</h3>
+                <div class="difficulty-buttons">
+                    <button id="easy" class="difficulty-btn active">初级 (9×9, 10雷)</button>
+                    <button id="medium" class="difficulty-btn">中级 (16×16, 40雷)</button>
+                    <button id="hard" class="difficulty-btn">高级 (16×30, 99雷)</button>
+                </div>
+            </div>
+
+            <div class="game-info">
+                <div class="info-box">
+                    <i class="fas fa-clock"></i>
+                    <span>时间:</span>
+                    <span id="timer">0</span>秒
+                </div>
+                <div class="info-box">
+                    <i class="fas fa-flag"></i>
+                    <span>剩余雷数:</span>
+                    <span id="mines-count">10</span>
+                </div>
+                <div class="info-box">
+                    <i class="fas fa-trophy"></i>
+                    <span>状态:</span>
+                    <span id="game-status">准备开始</span>
+                </div>
+                <button id="restart" class="restart-btn">
+                    <i class="fas fa-redo"></i> 重新开始
+                </button>
+            </div>
+        </div>
+
+        <div class="game-container">
+            <div class="game-board" id="game-board">
+                <!-- 游戏格子将在这里动态生成 -->
+            </div>
+        </div>
+
+        <div class="scoreboard">
+            <h3><i class="fas fa-chart-line"></i> 最佳成绩 (本地排行榜)</h3>
+            <div class="score-list">
+                <div class="score-item">
+                    <span class="score-difficulty">初级:</span>
+                    <span id="best-easy">暂无记录</span>
+                </div>
+                <div class="score-item">
+                    <span class="score-difficulty">中级:</span>
+                    <span id="best-medium">暂无记录</span>
+                </div>
+                <div class="score-item">
+                    <span class="score-difficulty">高级:</span>
+                    <span id="best-hard">暂无记录</span>
+                </div>
+            </div>
+            <button id="reset-scores" class="reset-btn">
+                <i class="fas fa-trash-alt"></i> 清空记录
+            </button>
+        </div>
+
+        <div class="instructions">
+            <h3><i class="fas fa-info-circle"></i> 游戏说明</h3>
+            <ul>
+                <li><i class="fas fa-mouse-pointer"></i> <strong>左键点击</strong>: 翻开格子</li>
+                <li><i class="fas fa-flag"></i> <strong>右键点击</strong>: 标记/取消标记旗帜</li>
+                <li><i class="fas fa-mouse-pointer"></i> <i class="fas fa-mouse-pointer"></i> <strong>双击数字</strong>: 当周围旗帜数等于数字时，快速翻开周围格子</li>
+                <li><i class="fas fa-shield-alt"></i> <strong>首发防雷</strong>: 第一次点击绝对不会踩雷</li>
+            </ul>
+        </div>
+
+        <footer>
+            <p>© 2023 Web单页应用开发实践 | 使用 HTML、CSS、JavaScript 开发</p >
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
