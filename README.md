@@ -25,15 +25,12 @@ minesweeper-game/
 └── assets/
 
 ## 分工说明
-### 成员A：[姓名]
-- HTML和CSS设计
-- 界面优化
-- 录制演示
-
-### 成员B：[姓名]
-- JavaScript逻辑
-- 游戏功能实现
-- 本地存储
+### 成员A：[朱含]
+### 单人完成
+- HTML/CSS/JavaScript 全部功能
+- 首发防雷和双击快速清除
+- 本地存储和计分板
+- 响应式设计和演示录制
 
 ## 演示动画
 ![演示](demo.gif)
@@ -42,4 +39,5 @@ minesweeper-game/
 https://github.com/ZHUHAN060712/minesweeper-game
 
 ## 许可证
-课程作业使用
+
+仅供课程作业使用
